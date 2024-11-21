@@ -1,0 +1,13 @@
+# Mark Jupyter notebooks as documentation
+*.ipynb linguist-documentation
+
+# Mark Python files as the primary language
+*.py linguist-language=Python
+
+# Ignore vendored code
+vendor/* linguist-vendored
+node_modules/* linguist-vendored
+
+# Ignore documentation
+docs/* linguist-documentation
+*.md linguist-documentation 
