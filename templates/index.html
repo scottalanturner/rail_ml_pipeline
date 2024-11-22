@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Train Crossing Predictor</title>
+    <!-- Leaflet CSS and JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Custom CSS -->
+    <style>
+        #map { 
+            height: 500px; 
+            width: 100%; 
+            margin-bottom: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .predictions {
+            margin-top: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .prediction-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            background-color: white;
+        }
+        .last-train {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Train Crossing Predictor</h1>
+        <div id="map"></div>
+        <button onclick="getPredictions()">Get Predictions</button>
+        <div id="last-train" class="last-train"></div>
+        <div id="predictions" class="predictions"></div>
+    </div>
+
+    <script>
+        // Initialize map
+        const map = L.map('map').setView([32.698450, -97.611346], 14);
+        
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Railroad path coordinates
+        const railroadPath = [
+            [32.701069, -97.635797],
+            [32.700978, -97.634220],
+            [32.700879, -97.631688],
+            [32.700789, -97.629478],
+            [32.700621, -97.626774],
+            [32.700397, -97.624049],
+            [32.700087, -97.621431],
+            [32.699751, -97.618899],
+            [32.699367, -97.616367],
+            [32.698923, -97.613878],
+            [32.698450, -97.611346],
+            [32.697977, -97.608857],
+            [32.697472, -97.606368],
+            [32.696936, -97.603836],
+            [32.696400, -97.601347],
+            [32.695896, -97.598944],
+            [32.695391, -97.596498],
+            [32.694855, -97.593966],
+            [32.694351, -97.591563],
+            [32.693877, -97.589203]
+        ];
+
+        // Draw railroad line
+        L.polyline(railroadPath, {color: 'black', weight: 3}).addTo(map);
+
+        // Create train marker
+        const trainIcon = L.icon({
+            iconUrl: '/static/img/train-icon.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16]
+        });
+
+        let train = L.marker(railroadPath[0], {icon: trainIcon}).addTo(map);
+        let currentSegment = 0;
+        let forward = true;
+
+        // Animate train
+        function animateTrain() {
+            if (forward) {
+                currentSegment++;
+                if (currentSegment >= railroadPath.length - 1) {
+                    forward = false;
+                }
+            } else {
+                currentSegment--;
+                if (currentSegment <= 0) {
+                    forward = true;
+                }
+            }
+            train.setLatLng(railroadPath[currentSegment]);
+            setTimeout(animateTrain, 1000);
+        }
+
+        // Start animation
+        animateTrain();
+
+        // Get predictions from Flask backend
+        async function getPredictions() {
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        timestamp: new Date().toISOString()
+                    })
+                });
+                
+                const data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Display last train info
+                const lastTrainDiv = document.getElementById('last-train');
+                lastTrainDiv.innerHTML = `
+                    <h3>Last Train</h3>
+                    <p>Time: ${data.last_train.time}</p>
+                    <p>Minutes ago: ${Math.round(data.last_train.minutes)}</p>
+                `;
+                
+                // Display predictions
+                const container = document.getElementById('predictions');
+                container.innerHTML = '';
+                
+                Object.entries(data.predictions).forEach(([interval, probability]) => {
+                    const card = document.createElement('div');
+                    card.className = 'prediction-card';
+                    card.innerHTML = `
+                        <h3>${interval} minutes</h3>
+                        <p>${probability.toFixed(1)}% chance</p>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('predictions').innerHTML = 
+                    `<div class="error">Error getting predictions: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html> 

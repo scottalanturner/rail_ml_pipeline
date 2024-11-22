@@ -1,5 +1,5 @@
-numpy
+flask
 pandas
-xgboost
-boto3
-scikit-learn 
+numpy
+scikit-learn
+lifelines 
